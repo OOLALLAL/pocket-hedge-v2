@@ -34,9 +34,6 @@ def get_max_weight(ticker: str, hedge_universe: list[dict]) -> float:
 
 
 def generate_hedge_combs(hedge_universe, max_hedge: float):
-    """
-    Generate all hedge combinations under weight constraints.
-    """
     hedge_combs = [{"name": "BASE", "weights": {}}]
 
     tickers = [h["ticker"] for h in hedge_universe]
@@ -66,11 +63,6 @@ def generate_hedge_combs(hedge_universe, max_hedge: float):
 #     PORTFOLIO UTILITIES
 # ==============================
 def build_base_and_weighted_portfolio(portfolio, max_hedge):
-    """
-    Build:
-    - base portfolio (normalized to sum to 1)
-    - weighted portfolio (scaled to allow hedge allocation)
-    """
     pf_amounts = np.array([pf["amount"] for pf in portfolio])
 
     base_weights = pf_amounts / pf_amounts.sum()
@@ -90,13 +82,11 @@ def build_base_and_weighted_portfolio(portfolio, max_hedge):
 def build_hedged_portfolios(base_portfolio, weighted_portfolio, hedge_combs):
     hedged = []
 
-    # BASE portfolio
     hedged.append({
         "name": "BASE",
         "weights": {p["ticker"]: p["amount"] for p in base_portfolio}
     })
 
-    # Hedged portfolios
     for comb in hedge_combs[1:]:
         pf_w = {p["ticker"]: p["amount"] for p in weighted_portfolio}
         for t, w in comb["weights"].items():
@@ -132,11 +122,9 @@ def evaluate_hedged_portfolios(hedged_portfolio, start, end):
         pf_log_ret = (log_rets * weights).sum(axis=1)
         n = len(pf_log_ret)
 
-        # Annualized return (CAGR)
         pf_cumsum = pf_log_ret.cumsum()
         pf_CAGR = np.exp(pf_cumsum.iloc[-1] * 252 / n) - 1
 
-        # Max Drawdown
         peak = pf_cumsum.cummax()
         dd = pf_cumsum - peak
         pf_maxDD = (np.exp(dd) - 1).min()
@@ -230,11 +218,14 @@ def plot_base_vs_best(base_weights, best_weights, start, end):
     base_curve = build_cumsum_portfolio(base_weights, start, end)
     best_curve = build_cumsum_portfolio(best_weights, start, end)
 
-    plt.figure()
+    plt.figure(figsize=(7, 4))
     plt.plot(base_curve, label="BASE")
     plt.plot(best_curve, label="BEST HEDGE")
     plt.legend()
     plt.title("Cumulative Return: BASE vs BEST HEDGE")
+    plt.xlabel("Date")
+    plt.ylabel("Cumulative Return")
+    plt.tight_layout()
     plt.show()
 
 
@@ -270,11 +261,19 @@ def run_engine(portfolio, hedge_universe, max_hedge,
 
 
 if __name__ == "__main__":
+    start_date = "2024-01-01"
+    end_date = "2025-01-01"
+
     result = run_engine(
         PORTFOLIO,
         HEDGE_UNIVERSE,
         MAX_HEDGE,
-        start="2024-01-01",
-        end="2025-01-01"
+        start=start_date,
+        end=end_date
     )
+
     pretty_print_result(result)
+
+    base_weights = result["hedged_portfolio"][0]["weights"]
+    best_weights = result["best"]["weights"]
+    plot_base_vs_best(base_weights, best_weights, start_date, end_date)
